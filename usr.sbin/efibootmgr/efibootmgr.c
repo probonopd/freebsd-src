@@ -53,9 +53,6 @@
 #include <efichar.h>
 #include <efivar-dp.h>
 
-void efi_asciidump(uint8_t *data, size_t datalen, int indent);
-void efi_hexdump(uint8_t *data, size_t datalen, int indent);
-
 #ifndef LOAD_OPTION_ACTIVE
 #define LOAD_OPTION_ACTIVE                0x00000001
 #endif
@@ -760,6 +757,35 @@ make_boot_var(const char *label, const char *loader, const char *kernel, const c
 
 
 static void
+local_hexdump(const uint8_t *data, size_t datalen, int indent)
+{
+	size_t i;
+
+	for (i = 0; i < datalen; i++) {
+		if (i != 0 && i % 16 == 0)
+			printf("\n%*s", indent, "");
+		printf("%02x%s", data[i], (i + 1 == datalen || i % 16 == 15) ?
+		    "" : " ");
+	}
+	printf("\n");
+}
+
+static void
+local_asciidump(const uint8_t *data, size_t datalen, int indent)
+{
+	size_t i;
+	unsigned char ch;
+
+	for (i = 0; i < datalen; i++) {
+		if (i != 0 && i % 64 == 0)
+			printf("\n%*s", indent, "");
+		ch = data[i];
+		printf("%c", isprint(ch) ? ch : '.');
+	}
+	printf("\n");
+}
+
+static void
 print_loadopt_str(uint8_t *data, size_t datalen)
 {
 	char *dev, *relpath, *abspath;
@@ -822,9 +848,9 @@ print_loadopt_str(uint8_t *data, size_t datalen)
 	/* Optional Data */
 	if (optlen > 0) {
 		printf("    opt/x: ");
-		efi_hexdump(opt, optlen, 11);
+		local_hexdump(opt, optlen, 11);
 		printf("    opt/a: ");
-		efi_asciidump(opt, optlen, 11);
+		local_asciidump(opt, optlen, 11);
 	}
 
 	/* Attributes */

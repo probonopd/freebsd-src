@@ -21,7 +21,17 @@ jobs:
           release: "14.2"
           usesh: true
           sync: rsync
+          copyback: true
           run: |
             set -eux
             cd "$GITHUB_WORKSPACE"
             make -C usr.sbin/efibootmgr clean all
+            objdir="$(make -C usr.sbin/efibootmgr -V .OBJDIR)"
+            mkdir -p "$GITHUB_WORKSPACE/artifacts"
+            cp "$objdir/efibootmgr" "$GITHUB_WORKSPACE/artifacts/efibootmgr"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: efibootmgr
+          path: artifacts/efibootmgr
+          if-no-files-found: error
