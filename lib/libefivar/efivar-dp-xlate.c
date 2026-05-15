@@ -622,6 +622,16 @@ errout:
 	return rv;
 }
 
+/*
+ * Returns true if the substring path[off .. off+len) sits at a clean
+ * directory-component boundary: the character before off (if any) must
+ * be '/' and the character immediately after the match must be '/' or '\0'.
+ *
+ * Callers are responsible for ensuring that strncmp() or strstr() has
+ * already confirmed that path[off .. off+len) matches the target string,
+ * which guarantees off+len <= strlen(path) and thus that path[off+len]
+ * is a valid (possibly '\0') read.
+ */
 static bool
 path_boundary_match(const char *path, size_t off, size_t len)
 {
@@ -784,6 +794,15 @@ path_to_dp(struct gmesh *mesh, char *path, efidp *dp)
 		if (strncmp(dev, _PATH_DEV, sizeof(_PATH_DEV) - 1) == 0)
 			dev += sizeof(_PATH_DEV) - 1;
 		mountpoint = buf.f_mntonname;
+		/*
+		 * Canonicalize the mountpoint so that chroot-prefixed paths
+		 * (e.g. /sysroot/media/esp) compare correctly against the
+		 * canonicalized input path.  If realpath(3) fails (e.g. for
+		 * pseudo-filesystems or when running inside a chroot that hides
+		 * the host mountpoint), fall back to the raw kernel-reported
+		 * mountpoint; relative_path_from_mountpoint() will still find
+		 * the correct suffix via its strstr() search.
+		 */
 		rmp = realpath(mountpoint, NULL);
 		if (rmp != NULL)
 			mountpoint = rmp;
