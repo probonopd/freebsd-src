@@ -551,7 +551,7 @@ handle_bootnext(uint16_t bootnum)
 	uint16_t num;
 
 	le16enc(&num, bootnum);
-	if (set_bootvar("BootNext", (uint8_t*)&bootnum, sizeof(uint16_t)) < 0)
+	if (set_bootvar("BootNext", (uint8_t *)&num, sizeof(uint16_t)) < 0)
 		err(1, "set_bootvar");
 }
 
