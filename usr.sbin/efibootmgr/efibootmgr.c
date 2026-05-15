@@ -53,6 +53,9 @@
 #include <efichar.h>
 #include <efivar-dp.h>
 
+void efi_asciidump(uint8_t *data, size_t datalen, int indent);
+void efi_hexdump(uint8_t *data, size_t datalen, int indent);
+
 #ifndef LOAD_OPTION_ACTIVE
 #define LOAD_OPTION_ACTIVE                0x00000001
 #endif
