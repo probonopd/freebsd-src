@@ -609,6 +609,55 @@ errout:
 	return rv;
 }
 
+static bool
+path_boundary_match(const char *path, size_t off, size_t len)
+{
+
+	return ((off == 0 || path[off - 1] == '/') &&
+	    (path[off + len] == '\0' || path[off + len] == '/'));
+}
+
+static int
+relative_path_from_mountpoint(const char *path, const char *mountpoint,
+    const char **relpath)
+{
+	size_t off, mntlen;
+	const char *p;
+
+	if (path == NULL || mountpoint == NULL || relpath == NULL)
+		return (EDOOFUS);
+
+	mntlen = strlen(mountpoint);
+	if (mntlen == 0 || mountpoint[0] != '/')
+		return (EINVAL);
+
+	if (strncmp(path, mountpoint, mntlen) == 0 &&
+	    path_boundary_match(path, 0, mntlen))
+		p = path + mntlen;
+	else {
+		p = path;
+		for (;;) {
+			p = strstr(p, mountpoint);
+			if (p == NULL)
+				return (EINVAL);
+			off = p - path;
+			if (path_boundary_match(path, off, mntlen)) {
+				p += mntlen;
+				break;
+			}
+			p++;
+		}
+	}
+
+	if (*p == '/')
+		p++;
+	else if (*p != '\0')
+		return (EINVAL);
+
+	*relpath = p;
+	return (0);
+}
+
 /* Handles //path/to/file */
 /*
  * Which means: find the disk that has /. Then look for a EFI partition
@@ -677,7 +726,8 @@ static int
 path_to_dp(struct gmesh *mesh, char *path, efidp *dp)
 {
 	struct statfs buf;
-	char *rp = NULL, *ep, *dev, *efimedia = NULL;
+	char *rp = NULL, *rmp = NULL, *dev, *efimedia = NULL;
+	const char *mountpoint, *ep;
 	int rv = 0;
 
 	rp = realpath(path, NULL);
@@ -703,7 +753,15 @@ path_to_dp(struct gmesh *mesh, char *path, efidp *dp)
 	} else {
 		if (strncmp(dev, _PATH_DEV, sizeof(_PATH_DEV) - 1) == 0)
 			dev += sizeof(_PATH_DEV) - 1;
-		ep = rp + strlen(buf.f_mntonname);
+		mountpoint = buf.f_mntonname;
+		rmp = realpath(mountpoint, NULL);
+		if (rmp != NULL)
+			mountpoint = rmp;
+		rv = relative_path_from_mountpoint(rp, mountpoint, &ep);
+		if (rv != 0)
+			goto errout;
+		if (*ep == '\0')
+			ep = NULL;
 	}
 
 	efimedia = find_geom_efimedia(mesh, dev);
@@ -720,6 +778,7 @@ path_to_dp(struct gmesh *mesh, char *path, efidp *dp)
 errout:
 	free(efimedia);
 	free(rp);
+	free(rmp);
 	if (rv != 0) {
 		free(*dp);
 		*dp = NULL;
