@@ -2,6 +2,7 @@ EFIBOOT=${SRCTOP}/stand/efi
 EFIINCL=${SRCTOP}/stand/efi/include
 .PATH: ${EFIBOOT}/libefi
 CFLAGS+= -I${EFIINCL}
+CFLAGS+= -I${SRCTOP}/lib/libefivar
 
 PACKAGE=	efi-tools
 
