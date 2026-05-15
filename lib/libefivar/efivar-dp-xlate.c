@@ -281,11 +281,24 @@ break2:
 
 	/*
 	 * Construct absolute path and we're finally done.
+	 * The relpath from a well-formed EFI File() node begins with '/'
+	 * (converted from the EFI-canonical leading '\').  Handle both that
+	 * form and older/broken entries that omit the leading separator to
+	 * avoid producing double-slashes or missing separators.
 	 */
-	if (strcmp(mnt[i].f_mntonname, "/") == 0)
-		asprintf(abspath, "/%s", *relpath);
-	else
-		asprintf(abspath, "%s/%s", mnt[i].f_mntonname, *relpath);
+	if ((*relpath)[0] == '/') {
+		/* relpath already carries the leading '/'. */
+		if (strcmp(mnt[i].f_mntonname, "/") == 0)
+			asprintf(abspath, "%s", *relpath);
+		else
+			asprintf(abspath, "%s%s", mnt[i].f_mntonname, *relpath);
+	} else {
+		/* Legacy/broken relpath without leading '/'. */
+		if (strcmp(mnt[i].f_mntonname, "/") == 0)
+			asprintf(abspath, "/%s", *relpath);
+		else
+			asprintf(abspath, "%s/%s", mnt[i].f_mntonname, *relpath);
+	}
 
 errout:
 	if (rv != 0) {
@@ -631,6 +644,18 @@ relative_path_from_mountpoint(const char *path, const char *mountpoint,
 	if (mntlen == 0 || mountpoint[0] != '/')
 		return (EINVAL);
 
+	/*
+	 * Special case: the root filesystem mounts at "/".  Every absolute
+	 * path lives under it, so the relative path is the full path itself
+	 * (e.g. "/EFI/freebsd/loader.efi").
+	 */
+	if (mntlen == 1) {
+		if (path[0] != '/')
+			return (EINVAL);
+		*relpath = path;
+		return (0);
+	}
+
 	if (strncmp(path, mountpoint, mntlen) == 0 &&
 	    path_boundary_match(path, 0, mntlen))
 		p = path + mntlen;
@@ -649,10 +674,14 @@ relative_path_from_mountpoint(const char *path, const char *mountpoint,
 		}
 	}
 
-	if (*p == '/')
-		p++;
-	else if (*p != '\0')
-		/* Prefix match must end at a path element boundary. */
+	/*
+	 * p points to the first character after the mountpoint suffix.
+	 * It must be '/' (start of the relative path) or '\0' (path is
+	 * exactly the mountpoint root).  Preserve the leading '/' so that
+	 * build_dp() produces the correct EFI path "\foo\bar" rather than
+	 * the incorrect "foo\bar".
+	 */
+	if (*p != '/' && *p != '\0')
 		return (EINVAL);
 
 	*relpath = p;
