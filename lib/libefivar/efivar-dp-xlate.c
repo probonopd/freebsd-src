@@ -652,6 +652,7 @@ relative_path_from_mountpoint(const char *path, const char *mountpoint,
 	if (*p == '/')
 		p++;
 	else if (*p != '\0')
+		/* Prefix match must end at a path element boundary. */
 		return (EINVAL);
 
 	*relpath = p;

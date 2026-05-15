@@ -760,12 +760,13 @@ static void
 local_hexdump(const uint8_t *data, size_t datalen, int indent)
 {
 	size_t i;
+	bool end_of_line;
 
 	for (i = 0; i < datalen; i++) {
 		if (i != 0 && i % 16 == 0)
 			printf("\n%*s", indent, "");
-		printf("%02x%s", data[i], (i + 1 == datalen || i % 16 == 15) ?
-		    "" : " ");
+		end_of_line = (i + 1 == datalen || i % 16 == 15);
+		printf("%02x%s", data[i], end_of_line ? "" : " ");
 	}
 	printf("\n");
 }
